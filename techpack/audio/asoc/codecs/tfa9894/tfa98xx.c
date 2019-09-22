@@ -1872,6 +1872,7 @@ static struct snd_soc_dapm_context *snd_soc_codec_get_dapm(struct snd_soc_codec 
 
 static void tfa98xx_add_widgets(struct tfa98xx *tfa98xx)
 {
+	//add by Multimedia,do not add the following non-used widgets to hold mic.
 #if 0
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(tfa98xx->codec);
 	struct snd_soc_dapm_widget *widgets;
