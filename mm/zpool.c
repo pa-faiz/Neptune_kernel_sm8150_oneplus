@@ -356,10 +356,9 @@ unsigned long zpool_compact(struct zpool *zpool)
 	return zpool->driver->compact(zpool->pool);
 }
 
-
 /**
  * zpool_get_num_compacted() - get the number of migrated/compacted pages
- * @stats	stats to fill in
+ * @pool       The zpool to get compaction statistic for
  *
  * Returns: the total number of migrated pages for the pool
  */
@@ -382,6 +381,18 @@ unsigned long zpool_get_num_compacted(struct zpool *zpool)
 u64 zpool_get_total_size(struct zpool *zpool)
 {
 	return zpool->driver->total_size(zpool->pool);
+}
+
+/**
+ * zpool_huge_class_size() - get size for the "huge" class
+ * @pool	The zpool to check
+ *
+ * Returns: size of the huge class
+ */
+size_t zpool_huge_class_size(struct zpool *zpool)
+{
+	return zpool->driver->huge_class_size ?
+		zpool->driver->huge_class_size(zpool->pool) : 0;
 }
 
 MODULE_LICENSE("GPL");
