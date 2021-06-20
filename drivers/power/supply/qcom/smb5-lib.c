@@ -466,7 +466,7 @@ int op_rerun_apsd(struct smb_charger *chg)
 		return rc;
 	}
 
-	if (!val.intval)
+	if (!val.intval) {
 		return 0;
 		/* rerun APSD */
 		pr_info("OP Reruning APSD type\n");
@@ -478,6 +478,7 @@ int op_rerun_apsd(struct smb_charger *chg)
 			smblib_err(chg, "Couldn't rerun APSD rc = %d\n", rc);
 			return rc;
 		}
+	}
 	return 0;
 }
 
