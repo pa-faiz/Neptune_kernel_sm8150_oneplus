@@ -36,7 +36,6 @@
 #include <soc/qcom/restart.h>
 #include <soc/qcom/watchdog.h>
 #include <soc/qcom/minidump.h>
-#include "msm-poweroff.h"
 
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
@@ -71,6 +70,7 @@ static unsigned int boot_config_shift;
  * So the SDI cannot be re-enabled when it already by-passed.
  */
 static int download_mode = 1;
+static bool force_warm_reboot;
 
 #ifdef CONFIG_QCOM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
@@ -109,11 +109,6 @@ struct reset_attribute {
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
 
-int oem_get_download_mode(void)
-{
-	return 0;
-}
-
 static int panic_prep_restart(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
@@ -132,6 +127,7 @@ int scm_set_dload_mode(int arg1, int arg2)
 		.args[1] = arg2,
 		.arginfo = SCM_ARGS(2),
 	};
+
 	if (!scm_dload_supported) {
 		if (tcsr_boot_misc_detect)
 			return scm_io_write(tcsr_boot_misc_detect, arg1);
@@ -149,37 +145,21 @@ int scm_set_dload_mode(int arg1, int arg2)
 static void set_dload_mode(int on)
 {
 	int ret;
-	u64 read_ret;
-	pr_debug("set_dload_mode %s\n", on ? "ON" : "OFF");
 
-	pr_debug("[MDM] on [%d] dload_mode_addr [%p]\n", on, dload_mode_addr);
 	if (dload_mode_addr) {
-		pr_debug("[MDM] modem_5G_panic is [%d]\n", modem_5G_panic);
-		if (modem_5G_panic == true) {
-			__raw_writel(on ? 0xABCDABCD : 0, dload_mode_addr);
-			pr_debug("[MDM] modem_5G_panic enter\n");
-		} else {
-			__raw_writel(on ? 0x0 : 0, dload_mode_addr);
-		}
+		__raw_writel(on ? 0xE47B337D : 0, dload_mode_addr);
+		__raw_writel(on ? 0xCE14091A : 0,
+		       dload_mode_addr + sizeof(unsigned int));
 		/* Make sure the download cookie is updated */
 		mb();
-		read_ret = __raw_readl(dload_mode_addr);
-		pr_debug("[MDM] read_ret is [0x%X]\n", read_ret);
 	}
 
 	ret = scm_set_dload_mode(on ? dload_type : 0, 0);
 	if (ret)
-		pr_debug("[MDM] Failed to set secure DLOAD mode: %d\n", ret);
+		pr_err("Failed to set secure DLOAD mode: %d\n", ret);
 
 	dload_mode_enabled = on;
 }
-
-/* [OSP-3675]: ext4 fsync */
-int get_download_mode(void)
-{
-	return download_mode && (dload_type & SCM_DLOAD_FULLDUMP);
-}
-EXPORT_SYMBOL(get_download_mode);
 
 void oem_force_minidump_mode(void)
 {
@@ -189,6 +169,12 @@ void oem_force_minidump_mode(void)
 		set_dload_mode(dload_type);
 		__raw_writel(EMMC_DLOAD_TYPE, dload_type_addr);
 	}
+
+}
+
+static bool get_dload_mode(void)
+{
+	return dload_mode_enabled;
 }
 
 static void enable_emergency_dload_mode(void)
@@ -219,7 +205,7 @@ static void enable_emergency_dload_mode(void)
 		ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
 
 	if (ret)
-		pr_debug("Failed to set secure EDLOAD mode: %d\n", ret);
+		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
 }
 
 static int dload_set(const char *val, const struct kernel_param *kp)
@@ -229,7 +215,7 @@ static int dload_set(const char *val, const struct kernel_param *kp)
 	int old_val = download_mode;
 
 	if (!download_mode) {
-		pr_debug("Error: SDI dynamic enablement is not supported\n");
+		pr_err("Error: SDI dynamic enablement is not supported\n");
 		return -EINVAL;
 	}
 
@@ -259,7 +245,7 @@ static void set_dload_mode(int on)
 
 static void enable_emergency_dload_mode(void)
 {
-	pr_debug("dload mode is not enabled on target\n");
+	pr_err("dload mode is not enabled on target\n");
 }
 #endif
 
@@ -280,7 +266,7 @@ static void scm_disable_sdi(void)
 		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
 			  SCM_WDOG_DEBUG_BOOT_PART), &desc);
 	if (ret)
-		pr_debug("Failed to disable secure wdog debug: %d\n", ret);
+		pr_err("Failed to disable secure wdog debug: %d\n", ret);
 }
 
 void msm_set_restart_mode(int mode)
@@ -315,6 +301,7 @@ static void halt_spmi_pmic_arbiter(void)
 
 static void msm_restart_prepare(const char *cmd)
 {
+	bool need_warm_reset = false;
 #ifdef CONFIG_QCOM_DLOAD_MODE
 	/* Write download mode flags if we're panic'ing
 	 * Write download mode flags if restart_mode says so
@@ -324,8 +311,22 @@ static void msm_restart_prepare(const char *cmd)
 		set_dload_mode(false);
 #endif
 
+	if (qpnp_pon_check_hard_reset_stored()) {
+		/* Set warm reset as true when device is in dload mode */
+		if (get_dload_mode() ||
+			((cmd != NULL && cmd[0] != '\0') &&
+			!strcmp(cmd, "edl")))
+			need_warm_reset = true;
+	} else {
+		need_warm_reset = (get_dload_mode() ||
+				(cmd != NULL && cmd[0] != '\0'));
+	}
+
+	if (force_warm_reboot)
+		pr_info("Forcing a warm reset of the system\n");
+
 	/* Hard reset the PMIC unless memory contents must be maintained. */
-	if (in_panic)
+	if (force_warm_reboot || need_warm_reset)
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	else
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
@@ -355,30 +356,6 @@ static void msm_restart_prepare(const char *cmd)
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_KEYS_CLEAR);
 			__raw_writel(0x7766550a, restart_reason);
-		} else if (!strcmp(cmd, "sbllowmemtest")) {
-			pr_debug("[op aging mem test] lunch ddr sbllowmemtest!!comm: %s, pid: %d\n"
-				, current->comm, current->pid);
-			qpnp_pon_set_restart_reason(
-					PON_RESTART_REASON_SBL_DDR_CUS);
-			__raw_writel(0x7766550b, restart_reason);
-		} else if (!strcmp(cmd, "sblmemtest")) {//op factory aging test
-			pr_debug("[op aging mem test] lunch ddr sblmemtest!!comm: %s, pid: %d\n"
-				, current->comm, current->pid);
-			qpnp_pon_set_restart_reason(
-					PON_RESTART_REASON_SBL_DDRTEST);
-		__raw_writel(0x7766550b, restart_reason);
-		} else if (!strcmp(cmd, "usermemaging")) {
-			pr_debug("[op aging mem test] lunch ddr usermemaging!!comm: %s, pid: %d\n"
-				, current->comm, current->pid);
-			qpnp_pon_set_restart_reason(
-					PON_RESTART_REASON_MEM_AGING);
-			__raw_writel(0x7766550b, restart_reason);
-		} else if (!strncmp(cmd, "rf", 2)) {
-			qpnp_pon_set_restart_reason(PON_RESTART_REASON_RF);
-			__raw_writel(RF_MODE, restart_reason);
-		} else if (!strncmp(cmd, "ftm", 3)) {
-			qpnp_pon_set_restart_reason(PON_RESTART_REASON_FACTORY);
-			__raw_writel(FACTORY_MODE, restart_reason);
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned long code;
 			int ret;
@@ -462,7 +439,7 @@ static void do_msm_poweroff(void)
 	deassert_ps_hold();
 
 	msleep(10000);
-	pr_debug("Powering off has failed\n");
+	pr_err("Powering off has failed\n");
 }
 
 #ifdef CONFIG_QCOM_DLOAD_MODE
@@ -558,20 +535,20 @@ static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
 		dload_type = SCM_DLOAD_FULLDUMP;
 	} else if (sysfs_streq(buf, "mini")) {
 		if (!msm_minidump_enabled()) {
-			pr_debug("Minidump is not enabled\n");
+			pr_err("Minidump is not enabled\n");
 			return -ENODEV;
 		}
 		dload_type = SCM_DLOAD_MINIDUMP;
 	} else if (sysfs_streq(buf, "both")) {
 		if (!msm_minidump_enabled()) {
-			pr_debug("Minidump not enabled, setting fulldump only\n");
+			pr_err("Minidump not enabled, setting fulldump only\n");
 			dload_type = SCM_DLOAD_FULLDUMP;
 			return count;
 		}
 		dload_type = SCM_DLOAD_BOTHDUMPS;
 	} else{
-		pr_debug("Invalid Dump setup request..\n");
-		pr_debug("Supported dumps:'full', 'mini', or 'both'\n");
+		pr_err("Invalid Dump setup request..\n");
+		pr_err("Supported dumps:'full', 'mini', or 'both'\n");
 		return -EINVAL;
 	}
 
@@ -633,31 +610,31 @@ static int msm_restart_probe(struct platform_device *pdev)
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	np = of_find_compatible_node(NULL, NULL, DL_MODE_PROP);
 	if (!np) {
-		pr_debug("unable to find DT imem DLOAD mode node\n");
+		pr_err("unable to find DT imem DLOAD mode node\n");
 	} else {
 		dload_mode_addr = of_iomap(np, 0);
 		if (!dload_mode_addr)
-			pr_debug("unable to map imem DLOAD offset\n");
+			pr_err("unable to map imem DLOAD offset\n");
 	}
 
 	np = of_find_compatible_node(NULL, NULL, EDL_MODE_PROP);
 	if (!np) {
-		pr_debug("unable to find DT imem EDLOAD mode node\n");
+		pr_err("unable to find DT imem EDLOAD mode node\n");
 	} else {
 		emergency_dload_mode_addr = of_iomap(np, 0);
 		if (!emergency_dload_mode_addr)
-			pr_debug("unable to map imem EDLOAD mode offset\n");
+			pr_err("unable to map imem EDLOAD mode offset\n");
 	}
 
 #ifdef CONFIG_RANDOMIZE_BASE
 #define KASLR_OFFSET_BIT_MASK	0x00000000FFFFFFFF
 	np = of_find_compatible_node(NULL, NULL, KASLR_OFFSET_PROP);
 	if (!np) {
-		pr_debug("unable to find DT imem KASLR_OFFSET node\n");
+		pr_err("unable to find DT imem KASLR_OFFSET node\n");
 	} else {
 		kaslr_imem_addr = of_iomap(np, 0);
 		if (!kaslr_imem_addr)
-			pr_debug("unable to map imem KASLR offset\n");
+			pr_err("unable to map imem KASLR offset\n");
 	}
 
 	if (kaslr_imem_addr) {
@@ -676,12 +653,12 @@ static int msm_restart_probe(struct platform_device *pdev)
 	np = of_find_compatible_node(NULL, NULL,
 				"qcom,msm-imem-dload-type");
 	if (!np) {
-		pr_debug("unable to find DT imem dload-type node\n");
+		pr_err("unable to find DT imem dload-type node\n");
 		goto skip_sysfs_create;
 	} else {
 		dload_type_addr = of_iomap(np, 0);
 		if (!dload_type_addr) {
-			pr_debug("unable to map imem dload-type offset\n");
+			pr_err("unable to map imem dload-type offset\n");
 			goto skip_sysfs_create;
 		}
 	}
@@ -689,14 +666,14 @@ static int msm_restart_probe(struct platform_device *pdev)
 	ret = kobject_init_and_add(&dload_kobj, &reset_ktype,
 			kernel_kobj, "%s", "dload");
 	if (ret) {
-		pr_debug("%s:Error in creation kobject_add\n", __func__);
+		pr_err("%s:Error in creation kobject_add\n", __func__);
 		kobject_put(&dload_kobj);
 		goto skip_sysfs_create;
 	}
 
 	ret = sysfs_create_group(&dload_kobj, &reset_attr_group);
 	if (ret) {
-		pr_debug("%s:Error in creation sysfs_create_group\n", __func__);
+		pr_err("%s:Error in creation sysfs_create_group\n", __func__);
 		kobject_del(&dload_kobj);
 	}
 skip_sysfs_create:
@@ -704,11 +681,11 @@ skip_sysfs_create:
 	np = of_find_compatible_node(NULL, NULL,
 				"qcom,msm-imem-restart_reason");
 	if (!np) {
-		pr_debug("unable to find DT imem restart reason node\n");
+		pr_err("unable to find DT imem restart reason node\n");
 	} else {
 		restart_reason = of_iomap(np, 0);
 		if (!restart_reason) {
-			pr_debug("unable to map imem restart reason offset\n");
+			pr_err("unable to map imem restart reason offset\n");
 			ret = -ENOMEM;
 			goto err_restart_reason;
 		}
@@ -765,6 +742,9 @@ skip_sysfs_create:
 		set_dload_mode(download_mode);
 	if (!download_mode)
 		scm_disable_sdi();
+
+	force_warm_reboot = of_property_read_bool(dev->of_node,
+						"qcom,force-warm-reboot");
 
 	return 0;
 
