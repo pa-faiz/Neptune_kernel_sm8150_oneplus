@@ -5269,9 +5269,11 @@ int dsi_panel_disable(struct dsi_panel *panel)
 
 	/* Avoid sending panel off commands when ESD recovery is underway */
 	if (!atomic_read(&panel->esd_recovery_pending)) {
-		oneplus_dimlayer_hbm_enable = false;
-		oneplus_dim_status = 0;
-		pr_err("Kill dim when panel goes off");
+		if (is_a12 == 1 && is_stock == 0) {
+			oneplus_dimlayer_hbm_enable = false;
+			oneplus_dim_status = 0;
+			pr_err("Kill dim when panel goes off");
+		}
 		HBM_flag = false;
 
 	if (panel->aod_mode == 2)
