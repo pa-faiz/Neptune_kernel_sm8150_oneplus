@@ -307,7 +307,6 @@ static int reg_ion_mem(void)
 		pr_debug("%s: exited dma_buf = %pK, phys_addr = %lu, length = %d, vaddr = %pK, rc = 0x%x\n",
 			__func__, dma_buf, (long)po.paddr,
 			(unsigned int)po.size, po.kvaddr, rc);
-	}
 	return rc;
 }
 
