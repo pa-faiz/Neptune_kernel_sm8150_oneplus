@@ -20,4 +20,4 @@ echo
 echo "Compiling kernel"
 echo
 
-make O=out ARCH=arm64 || exit 1
+make O=out ARCH=arm64 -j$(nproc --all) || exit 1
