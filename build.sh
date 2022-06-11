@@ -14,7 +14,7 @@ echo
 echo "Setting defconfig"
 echo
 
-make O=out ARCH=arm64
+make O=out ARCH=arm64 neptune_defconfig
 
 echo
 echo "Compiling kernel"
