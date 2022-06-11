@@ -6,7 +6,7 @@ export HOME=/home/harish/neptune
 # Compiler environment
 export GCC_PATH=$HOME/gcc-arm64/bin
 export PATH="$GCC_PATH:$PATH"
-export CROSS_COMPILE="$GCC_PATH:$PATH"/aarch64-elf-
+export CROSS_COMPILE=$HOME/gcc-arm64/bin/aarch64-elf-
 export KBUILD_BUILD_USER=Codecity001
 export KBUILD_BUILD_HOST=Harish
 
