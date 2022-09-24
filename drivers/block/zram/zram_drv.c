@@ -1058,7 +1058,7 @@ static ssize_t mm_stat_show(struct device *dev,
 			(zram->limit_pages << PAGE_SHIFT) / 1048576,
 			(max_used << PAGE_SHIFT) / 1048576,
 			((u64)atomic64_read(&zram->stats.same_pages)) / 256,
-			(atomic_long_read(&pool_stats.pages_compacted)) / 256,
+			pool_stats.pages_compacted);
 			(zram_dedup_dup_size(zram)) / 1048576,
 			(zram_dedup_meta_size(zram)) / 1048576);
 	up_read(&zram->init_lock);
