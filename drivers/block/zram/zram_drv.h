@@ -141,7 +141,7 @@ struct zram {
 	unsigned long nr_pages;
 #endif
 #ifdef CONFIG_ZRAM_MEMORY_TRACKING
-	struct proc_dir_entry *proc_dir;
+	struct dentry *debugfs_dir;
 #endif
 };
 
