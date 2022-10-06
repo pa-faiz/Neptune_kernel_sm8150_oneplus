@@ -172,7 +172,6 @@ int cam_context_handle_crm_apply_req(struct cam_context *ctx,
 		return -EINVAL;
 	}
 
-	mutex_lock(&ctx->ctx_mutex);
 	if (ctx->state_machine[ctx->state].crm_ops.apply_req) {
 		rc = ctx->state_machine[ctx->state].crm_ops.apply_req(ctx,
 			apply);
@@ -181,31 +180,6 @@ int cam_context_handle_crm_apply_req(struct cam_context *ctx,
 			ctx->dev_hdl, ctx->state);
 		rc = -EPROTO;
 	}
-	mutex_unlock(&ctx->ctx_mutex);
-
-	return rc;
-}
-
-int cam_context_handle_crm_flush_req(struct cam_context *ctx,
-	struct cam_req_mgr_flush_request *flush)
-{
-	int rc;
-
-	if (!ctx->state_machine) {
-		CAM_ERR(CAM_CORE, "Context is not ready");
-		return -EINVAL;
-	}
-
-	mutex_lock(&ctx->ctx_mutex);
-	if (ctx->state_machine[ctx->state].crm_ops.flush_req) {
-		rc = ctx->state_machine[ctx->state].crm_ops.flush_req(ctx,
-			flush);
-	} else {
-		CAM_ERR(CAM_CORE, "No crm flush req in dev %d, state %d",
-			ctx->dev_hdl, ctx->state);
-		rc = -EPROTO;
-	}
-	mutex_unlock(&ctx->ctx_mutex);
 
 	return rc;
 }
@@ -271,7 +245,7 @@ int cam_context_dump_pf_info(struct cam_context *ctx, unsigned long iova,
 		rc = ctx->state_machine[ctx->state].pagefault_ops(ctx, iova,
 			buf_info);
 	} else {
-		CAM_INFO(CAM_CORE, "No dump ctx in dev %d, state %d",
+		CAM_WARN(CAM_CORE, "No dump ctx in dev %d, state %d",
 			ctx->dev_hdl, ctx->state);
 	}
 	mutex_unlock(&ctx->ctx_mutex);
@@ -524,33 +498,6 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 	return rc;
 }
 
-int cam_context_handle_dump_dev(struct cam_context *ctx,
-	struct cam_dump_req_cmd *cmd)
-{
-	int rc = 0;
-
-	if (!ctx || !ctx->state_machine) {
-		CAM_ERR(CAM_CORE, "Context is not ready");
-		return -EINVAL;
-	}
-
-	if (!cmd) {
-		CAM_ERR(CAM_CORE, "Invalid stop device command payload");
-		return -EINVAL;
-	}
-
-	mutex_lock(&ctx->ctx_mutex);
-	if (ctx->state_machine[ctx->state].ioctl_ops.dump_dev)
-		rc = ctx->state_machine[ctx->state].ioctl_ops.dump_dev(
-			ctx, cmd);
-	else
-		CAM_WARN(CAM_CORE, "No dump device in dev %d, name %s state %d",
-			ctx->dev_hdl, ctx->dev_name, ctx->state);
-	mutex_unlock(&ctx->ctx_mutex);
-
-	return rc;
-}
-
 int cam_context_init(struct cam_context *ctx,
 	const char *dev_name,
 	uint64_t dev_id,
@@ -577,7 +524,7 @@ int cam_context_init(struct cam_context *ctx,
 	mutex_init(&ctx->sync_mutex);
 	spin_lock_init(&ctx->lock);
 
-	strlcpy(ctx->dev_name, dev_name, CAM_CTX_DEV_NAME_MAX_LENGTH);
+	ctx->dev_name = dev_name;
 	ctx->dev_id = dev_id;
 	ctx->ctx_id = ctx_id;
 	ctx->last_flush_req = 0;
