@@ -1050,6 +1050,7 @@ static bool scm_is_fils_config_match(struct scan_filter *filter,
 		(struct fils_indication_ie *) db_entry->ie_list.fils_indication;
 
 	end_ptr = (uint8_t *)indication_ie + indication_ie->len + 2;
+<<<<<<< HEAD:drivers/staging/qca-wifi-host-cmn/umac/scan/core/src/wlan_scan_filter.c
 	data = indication_ie->variable_data;
 
 	if (indication_ie->is_cache_id_present &&
@@ -1062,6 +1063,20 @@ static bool scm_is_fils_config_match(struct scan_filter *filter,
 
 	for (i = 1; i <= indication_ie->realm_identifiers_cnt &&
 	     (data + REAM_HASH_LEN) < end_ptr; i++) {
+=======
+
+	data = indication_ie->variable_data;
+	if (indication_ie->is_cache_id_present &&
+	    (data + CACHE_IDENTIFIER_LEN) <= end_ptr)
+		data += CACHE_IDENTIFIER_LEN;
+
+	if (indication_ie->is_hessid_present &&
+	    (data + HESSID_LEN) <= end_ptr)
+		data += HESSID_LEN;
+
+	for (i = 1; i <= indication_ie->realm_identifiers_cnt &&
+	     (data + REAM_HASH_LEN) <= end_ptr; i++) {
+>>>>>>> ba83eac7042797e19d26a82265594c355b173095:umac/scan/core/src/wlan_scan_filter.c
 		if (!qdf_mem_cmp(filter->fils_scan_filter.fils_realm,
 				 data, REAM_HASH_LEN))
 			return true;
