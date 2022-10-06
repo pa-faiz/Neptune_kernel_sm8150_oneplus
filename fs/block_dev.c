@@ -1667,6 +1667,9 @@ int blkdev_get(struct block_device *bdev, fmode_t mode, void *holder)
 
 	}
 
+	if (res)
+		bdput(bdev);
+
 	return res;
 }
 EXPORT_SYMBOL(blkdev_get);
