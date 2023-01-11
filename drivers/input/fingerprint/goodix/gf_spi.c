@@ -45,7 +45,6 @@
 #include <linux/cpufreq.h>
 //#include <linux/wakelock.h>
 #include <linux/oneplus/boot_mode.h>
-#include <linux/devfreq_boost.h>
 #include "gf_spi.h"
 
 #if defined(USE_SPI_BUS)
@@ -684,7 +683,6 @@ int gf_opticalfp_irq_handler(int event)
 	}
 	switch(event) {
 	case 1:
-	  devfreq_boost_kick_max(DEVFREQ_CPU_LLCC_DDR_BW, 500);
 	  gf_dev->udfps_pressed = 1;
 	  msg = GF_NET_EVENT_TP_TOUCHDOWN;
           sendnlmsg(&msg);
