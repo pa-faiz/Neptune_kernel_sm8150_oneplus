@@ -1,4 +1,4 @@
-/*
+W/*
  * Copyright (c) 2007-2009 Patrick McHardy <kaber@trash.net>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -3406,6 +3406,9 @@ int nf_tables_bind_set(const struct nft_ctx *ctx, struct nft_set *set,
 {
 	struct nft_set_binding *i;
 	struct nft_set_iter iter;
+
+	if (set->use == UINT_MAX)
+		return -EOVERFLOW;
 
 	if (!list_empty(&set->bindings) && set->flags & NFT_SET_ANONYMOUS)
 		return -EBUSY;
