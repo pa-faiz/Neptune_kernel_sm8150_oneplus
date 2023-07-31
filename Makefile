@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 316
+SUBLEVEL = 320
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -852,6 +852,10 @@ LDFLAGS += -O3
 endif
 
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)
+
+# These result in bogus false positives
+KBUILD_CFLAGS += $(call cc-disable-warning, dangling-pointer)
+
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
 else
@@ -880,8 +884,13 @@ ifdef CONFIG_INIT_STACK_ALL_ZERO
 # Future support for zero initialization is still being debated, see
 # https://bugs.llvm.org/show_bug.cgi?id=45497. These flags are subject to being
 # renamed or dropped.
+<<<<<<< HEAD
 KBUILD_CFLAGS  += $(call cc-option -ftrivial-auto-var-init=zero)
 KBUILD_CFLAGS  += $(call cc-option -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang)
+=======
+KBUILD_CFLAGS  += -ftrivial-auto-var-init=zero
+KBUILD_CFLAGS  += $(call cc-option, -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang)
+>>>>>>> e8c1340cbb0f24693dd9056f8d5a7808e4597b80
 endif
 
 KBUILD_CFLAGS   += $(call cc-option, -fno-var-tracking-assignments)
