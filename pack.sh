@@ -17,19 +17,9 @@ export LOCALVERSION="-${KNAME}-$(echo "${VERSION}")"
 
 # Build with kernel SU
 if [[ "${1}" == "k" ]] ; then
-	echo
 	echo "Building with Kernel SU"
 	patch -p1 < kernelsu.patch
 	curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-	if [[ "${2}" == "y" ]] ; then
-		echo
-		echo "Applying 0001-oneplus_touchscreen-Implement-single-tap-attr.patch"
-		patch -p1 < 0001-oneplus_touchscreen-Implement-single-tap-attr.patch
-	fi
-else [[ "${1}" == "y" ]] ;
-	echo
-	echo "Applying 0001-oneplus_touchscreen-Implement-single-tap-attr.patch"
-	patch -p1 < 0001-oneplus_touchscreen-Implement-single-tap-attr.patch
 fi
 
 # Let's build
