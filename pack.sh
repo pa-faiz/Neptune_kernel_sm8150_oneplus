@@ -27,7 +27,7 @@ if [[ "${1}" == "k" ]] ; then
 	echo
 	echo "Building with Kernel SU"
 	patch -p1 < kernelsu.patch
-	curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+	bash kernelSU.sh
 	if [[ "${2}" == "o" ]] ; then
 		echo
 		echo "Applying GPUOC.patch"
