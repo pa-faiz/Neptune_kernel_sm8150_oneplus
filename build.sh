@@ -4,7 +4,7 @@
 export HOME=/home/harish/neptune
 
 # Compiler environment
-export CLANG_PATH=$HOME/neutron-clang/bin
+export CLANG_PATH=$HOME/prebuilts/clang-r498229b/bin
 export PATH="$CLANG_PATH:$PATH"
 export CROSS_COMPILE=aarch64-linux-gnu-
 export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
