@@ -4,7 +4,7 @@
 ## AnyKernel setup
 # begin properties
 properties() { '
-kernel.string=NeptuneKernel by Codecity001|H A R I S H
+kernel.string=NeptunePlayground by Codecity001|H A R I S H
 do.devicecheck=1
 do.modules=0
 do.systemless=1
@@ -23,7 +23,7 @@ device.name10=OnePlus7TPro
 device.name11=hotdog
 device.name12=OnePlus7TProNR
 device.name13=hotdogg
-supported.versions=11 - 13
+supported.versions=11 - 14
 '; } # end properties
 
 # shell variables
