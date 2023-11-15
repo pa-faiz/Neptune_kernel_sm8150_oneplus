@@ -4,41 +4,38 @@ KNAME="NeptuneKernel"
 MIN_HEAD=$(git rev-parse HEAD)
 VERSION="$(cat version)-$(date +%m.%d.%y-%H%M)"
 
-if [[ "${1}" == "k" ]] ; then
-    if [[ "${2}" == "o" ]] ; then
-        ZIPNAME="${KNAME}-$(cat version)-KSuOC-$(date +%d.%m.%Y-%H%M)"
-    else
-        ZIPNAME="${KNAME}-$(cat version)-KSu-$(date +%d.%m.%Y-%H%M)"
-    fi
+if [[ "${1}" == "k" && "${2}" == "o" ]] || [[ "${1}" == "o" && "${2}" == "k" ]] ; then
+    ZIPNAME="${KNAME}-$(cat version)-KSuOC-$(date +%d.%m.%Y-%H%M)"
+elif [[ "${1}" == "k" ]] ; then
+    ZIPNAME="${KNAME}-$(cat version)-KSu-$(date +%d.%m.%Y-%H%M)"
+elif [[ "${1}" == "o" || "${2}" == "o" ]] ; then
+    ZIPNAME="${KNAME}-$(cat version)-OC-$(date +%d.%m.%Y-%H%M)"
 else
-    if [[ "${1}" == "o" || "${2}" == "o" ]] ; then
-        ZIPNAME="${KNAME}-$(cat version)-OC-$(date +%d.%m.%Y-%H%M)"
-    else
-	ZIPNAME="${KNAME}-$(cat version)-$(date +%d.%m.%Y-%H%M)"
-    fi
+    ZIPNAME="${KNAME}-$(cat version)-$(date +%d.%m.%Y-%H%M)"
 fi
 
 export LOCALVERSION="-${KNAME}-${VERSION}"
 # Never dirty compile
 ./clean.sh
 
-# Build with kernel SU
-if [[ "${1}" == "k" ]] ; then
-	echo
-	echo "Building with Kernel SU"
-	patch -p1 < kernelsu.patch
-	bash kernelSU.sh
-	if [[ "${2}" == "o" ]] ; then
-		echo
-		echo "Applying GPUOC.patch"
-		patch -p1 < GPUOC.patch
-	fi
-else
-	if [[ "${1}" == "o" ]] ; then
-		echo
-		echo "Applying GPUOC.patch"
-		patch -p1 < GPUOC.patch
-	fi
+# Build with kernel SU && GPU OC
+if [[ "${1}" == "k" && "${2}" == "o" ]] || [[ "${1}" == "o" && "${2}" == "k" ]] ; then
+    echo
+    echo "Building with Kernel SU"
+    patch -p1 < kernelsu.patch
+    bash kernelSU.sh
+    echo
+    echo "Applying GPUOC.patch"
+    patch -p1 < GPUOC.patch
+elif [[ "${1}" == "k" ]] ; then
+    echo
+    echo "Building with Kernel SU"
+    patch -p1 < kernelsu.patch
+    bash kernelSU.sh
+elif [[ "${1}" == "o" ]] ; then
+    echo
+    echo "Applying GPUOC.patch"
+    patch -p1 < GPUOC.patch
 fi
 
 # Let's build
