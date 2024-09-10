@@ -392,7 +392,7 @@ static void tp_gesture_report_single_tap(struct work_struct *work)
 {
 	struct touchpanel_data *ts = container_of(work, struct touchpanel_data, report_single_tap_work.work);
 
-	tp_report_key(ts, KEY_GESTURE_SINGLE_TAP);
+	sysfs_notify(&ts->client->dev.kobj, NULL, "single_tap_pressed");
 	__pm_relax(&ts->single_tap_pm);
 }
 
@@ -2087,17 +2087,17 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
 	}
 
 	if (device_create_file(&ts->client->dev, &dev_attr_tp_fw_update)) {
-		TPD_INFO("driver_create_file failed\n");
+		TPD_INFO("driver_create_file failt\n");
 		ret = -ENOMEM;
 	}
 
 	if (device_create_file(&ts->client->dev, &dev_attr_double_tap_pressed)) {
-		TPD_INFO("driver_create_file failed\n");
+		TPD_INFO("driver_create_file failt\n");
 		ret = -ENOMEM;
 	}
 
 	if (device_create_file(&ts->client->dev, &dev_attr_single_tap_pressed)) {
-		TPD_INFO("driver_create_file failed\n");
+		TPD_INFO("driver_create_file failt\n");
 		ret = -ENOMEM;
 	}
 	//proc files-step2:/proc/touchpanel
